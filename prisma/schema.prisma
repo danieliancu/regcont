@@ -1,0 +1,41 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Client {
+  id       Int       @id @default(autoincrement())
+  name     String
+  cui      String?   // Cod Unic de Înregistrare (opțional)
+  address  String?   // Adresa clientului
+  invoices Invoice[]
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement())
+  number    String   // Număr unic al facturii
+  date      DateTime @default(now())
+  total     Float
+  vat       Float
+  client    Client   @relation(fields: [clientId], references: [id])
+  clientId  Int
+}
+
+model CashTransaction {
+  id          Int      @id @default(autoincrement())
+  type        TransactionType
+  amount      Float
+  date        DateTime @default(now())
+  description String?
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
