@@ -5,7 +5,10 @@ import NewClientForm from '../../components/NewClientForm';
 import InvoiceList from '../../components/InvoiceList';
 
 export default function NewInvoice() {
+  const [tip, setTip] = useState('Factură'); // Nou: Tipul facturii
+  const [indexInregistrare, setIndexInregistrare] = useState(''); // Nou: Index Înregistrare (id-ul facturii)
   const [number, setNumber] = useState(''); // Lăsat gol pentru input manual
+  const [cod, setCod] = useState(''); // Nou: Cod
   const [total, setTotal] = useState('');
   const [vat, setVat] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
@@ -38,20 +41,19 @@ export default function NewInvoice() {
   }, []);
 
   // Încarcă lista de clienți din API
-    useEffect(() => {
-        async function fetchClients() {
-        try {
-            const res = await fetch('/api/clients');
-            const data = await res.json();
-            setClients(data.reverse()); // Inversăm lista pentru a afișa ultimul client primul
-        } catch (error) {
-            console.error('Error fetching clients:', error);
-        }
-        }
-        fetchClients();
-    }, []);
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const res = await fetch('/api/clients');
+        const data = await res.json();
+        setClients(data.reverse()); // Inversăm lista pentru a afișa ultimul client primul
+      } catch (error) {
+        console.error('Error fetching clients:', error);
+      }
+    }
+    fetchClients();
+  }, []);
   
-
   // Filtrează clienții pe baza textului introdus
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -65,10 +67,22 @@ export default function NewInvoice() {
       return;
     }
 
+    // Calculează data scadentă: o lună mai târziu
+    const scadentaDate = new Date();
+    scadentaDate.setMonth(scadentaDate.getMonth() + 1);
+    const scadentaFormatted = scadentaDate.toISOString().split('T')[0];
+
+    // Calculează totalVAT = total + vat
+    const totalvat = parseFloat(total) + parseFloat(vat);
+
     const invoiceData = { 
+      tip,
       number, 
+      cod,
       total, 
       vat, 
+      scadenta: scadentaFormatted,
+      totalvat,
       clientId: parseInt(selectedClient.id)
     };
 
@@ -79,9 +93,14 @@ export default function NewInvoice() {
     });
 
     if (res.ok) {
-      // Resetăm formularul
+      const data = await res.json();
+      // Setează indexul înregistrării cu id-ul primit din baza de date
+      setIndexInregistrare(data.id);
+      
+      // Resetăm formularul (cu excepția câmpurilor noi, după caz)
       setTotal('');
       setVat('');
+      setCod('');
       setSelectedClient(null);
       setSearchTerm('');
       setSuccessMessage('Factura a fost creată cu succes!');
@@ -98,7 +117,9 @@ export default function NewInvoice() {
     setSelectedClient(newClient);
     setShowNewClientForm(false);
   };
-  
+
+  // Calculează suma totală (total + vat) pentru afișare
+  const computedTotalVat = (parseFloat(total) || 0) + (parseFloat(vat) || 0);
 
   return (
     <div style={{ maxWidth: '1200px', margin: 'auto' }}>
@@ -112,6 +133,30 @@ export default function NewInvoice() {
         {/* Coloana stângă: Formularul de facturare */}
         <div style={{ flex: 1 }}>
           <form onSubmit={handleSubmit}>
+            {/* Nou: Dropdown pentru Tip */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label>Tip:</label>
+              <select 
+                value={tip} 
+                onChange={(e) => setTip(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem' }}
+                required
+              >
+                <option value="Factură">Factură</option>
+                <option value="Bon Fiscal">Bon Fiscal</option>
+                <option value="Chitanță">Chitanță</option>
+              </select>
+            </div>
+            {/* Nou: Index Înregistrare (disabled) */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label>Index Înregistrare:</label>
+              <input
+                type="text"
+                value={indexInregistrare}
+                disabled
+                style={{ width: '100%', padding: '0.5rem' }}
+              />
+            </div>
             <div style={{ marginBottom: '1rem' }}>
               <label>Numărul Facturii:</label>
               <input
@@ -119,6 +164,18 @@ export default function NewInvoice() {
                 value={number}
                 onChange={(e) => setNumber(e.target.value)}
                 placeholder="Introduceți numărul facturii"
+                required
+                style={{ width: '100%', padding: '0.5rem' }}
+              />
+            </div>
+            {/* Nou: Cod */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label>Cod:</label>
+              <input
+                type="text"
+                value={cod}
+                onChange={(e) => setCod(e.target.value)}
+                placeholder="Introduceți codul"
                 required
                 style={{ width: '100%', padding: '0.5rem' }}
               />
@@ -143,6 +200,17 @@ export default function NewInvoice() {
                 onChange={(e) => setVat(e.target.value)}
                 required
                 style={{ width: '100%', padding: '0.5rem' }}
+              />
+            </div>
+            {/* Nou: TOTAL + TVA (disabled) */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label>TOTAL + TVA (RON):</label>
+              <input
+                type="number"
+                step="0.01"
+                value={computedTotalVat}
+                disabled
+                style={{ width: '100%', padding: '0.5rem', backgroundColor: '#f9f9f9' }}
               />
             </div>
             <div style={{ marginBottom: '1rem' }}>
